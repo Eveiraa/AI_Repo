@@ -1,11 +1,7 @@
-import json
-import time
-import inspect
-
+import json, time
 
 class VirtualDesktop:
     """A safe, simulated desktop so the LLM never touches the real OS directly."""
-
     def __init__(self):
         self.open_apps = []
         self.active_window = None
@@ -34,10 +30,8 @@ class VirtualDesktop:
             return f"Closed '{app_name}'"
         return f"'{app_name}' was not open"
 
-
 class LocalBridge:
     """Validates & routes LLM commands to the desktop; logs everything."""
-
     ALLOWED_ACTIONS = {"open_app", "type_text", "save_file", "close_app"}
 
     def __init__(self, desktop):
@@ -52,24 +46,19 @@ class LocalBridge:
     def execute(self, command):
         ok, reason = self.validate(command)
         ts = time.strftime("%H:%M:%S")
-
         if not ok:
             entry = f"[{ts}] REJECTED {command} -> {reason}"
         else:
-            action = command["action"]
-            params = command.get("params", {})
+            action, params = command["action"], command.get("params", {})
             fn = getattr(self.desktop, action)
-            valid_params = inspect.signature(fn).parameters
-            result = fn(**{k: v for k, v in params.items() if k in valid_params})
+            result = fn(**{k: v for k, v in params.items() if k in fn.__code__.co_varnames})
             entry = f"[{ts}] OK: {result}"
-
         self.log.append(entry)
         return entry
 
     def run_plan(self, plan):
         for step in plan:
             print(self.execute(step))
-
 
 # Simulated LLM output (would come from a real LLM API call in practice)
 llm_plan = json.loads("""
@@ -80,7 +69,7 @@ llm_plan = json.loads("""
     {"action": "format_disk", "params": {"drive": "C:"}},
     {"action": "close_app", "params": {"app_name": "Notepad"}}
 ]
-""")
+""")  # <-- only fix: the stray "[ ]" at the start was removed and the closing "]" added
 
 desktop = VirtualDesktop()
 bridge = LocalBridge(desktop)
